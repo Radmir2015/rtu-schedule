@@ -2,10 +2,16 @@ const xlsx = require('js-xlsx'),
       fs   = require('fs');
 
 const getValueOn = function (worksheet, columnN, rowN) {
-    return worksheet[xlsx.utils.encode_cell({c: columnN, r: rowN})].v;
+    try {
+        return worksheet[xlsx.utils.encode_cell({c: columnN, r: rowN})].v;
+    } catch {
+        console.log(`Undefined value at [${columnN}, ${rowN}]`);
+        return '';
+    }
 }
 
 const parseXls = function (options) {
+    console.log(`${options.jsonFilename} has started to build!`);
     const wbook = (() => {
         if (options.way == 'file')
             return xlsx.readFile(options.xlsxFilename);
@@ -17,14 +23,15 @@ const parseXls = function (options) {
 
     const worksheet = wbook.Sheets[wbook.SheetNames[0]];
 
-    const rowsLength = xlsx.utils.decode_range(worksheet['!ref']).e.r;
+    const rowsLength = xlsx.utils.decode_range(worksheet['!ref']).e.c + 1;
+    console.log(rowsLength);
     const schedule = {
         timeOfClass: [],
         groupsNames: [],
     };
 
     const oneDaySpan = worksheet['!merges'].find(range => range.s.c === 0 && range.s.r == 3 );
-    const oneDayCellsNum = oneDaySpan.e.r - oneDaySpan.s.r;
+    const oneDayCellsNum = oneDaySpan.e.r - oneDaySpan.s.r + 1;
 
     for (let rowN = oneDaySpan.s.r; rowN < oneDaySpan.e.r; rowN += 2) {
         schedule.timeOfClass.push([
@@ -34,12 +41,18 @@ const parseXls = function (options) {
     }
 
     for (let colN = 0; colN < rowsLength; colN += 17) {
+        if (!(getValueOn(worksheet, colN, 1) == 'День недели')) {
+            colN -= 16;
+            continue;
+        }
         [5, 9, 13].forEach(shift => {
-            let groupName = getValueOn(worksheet, colN + shift, 1)
+            let groupName = getValueOn(worksheet, colN + shift, 1).replace('(', ' ').split(' ')[0];
             if (groupName !== '')
                 schedule.groupsNames.push(groupName);
             else
                 return;
+
+            console.log(groupName);
 
             schedule[groupName] = { 'I': [], 'II': [] };
 
@@ -77,15 +90,17 @@ const parseXls = function (options) {
     if (options.saveToFile)
         fs.writeFile(options.jsonFilename || 'schedule.json', JSON.stringify(schedule), err => {
             if (err) console.error(err);
-            console.log('File schedule.json was written successfully!');
+            console.log(`File ${options.jsonFilename || 'schedule.json'} was written successfully!`);
         });
 
     return schedule;
 }
 
-parseXls({
-    'way': 'file',
-    'xlsxFilename': 'IK_3k_19_20_osen.xlsx',
-    'saveToFile': true,
-    'jsonFilename': 'schedule.json'
-});
+// parseXls({
+//     'way': 'file',
+//     'xlsxFilename': 'IK_3k_19_20_osen.xlsx',
+//     'saveToFile': true,
+//     'jsonFilename': 'schedule.json'
+// });
+
+module.exports = parseXls;

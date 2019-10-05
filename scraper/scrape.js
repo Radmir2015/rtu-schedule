@@ -1,5 +1,7 @@
-const rp = require('request-promise');
-const $ = require('cheerio');
+const rp = require('request-promise'),
+      $ = require('cheerio');
+      downloadSchedule = require('./download');
+
 const url = 'https://www.mirea.ru/education/schedule-main/schedule/';
 
 rp(url)
@@ -14,6 +16,7 @@ rp(url)
                 linksToParse.push(link);
         }
         console.log(linksToParse);
+        return Promise.all(linksToParse.slice(1, 3).map(url => downloadSchedule(url)));
     })
     .catch(err => {
         // handle error
