@@ -16,7 +16,18 @@ rp(url)
                 linksToParse.push(link);
         }
         console.log(linksToParse);
-        return Promise.all(linksToParse.slice(1, 3).map(url => downloadSchedule(url)));
+        
+        const getOptsForSchedule = function(url) {
+            return opts = {
+                url: url,
+                saveToJson: true,
+                jsonFilename: `data/json/${url.split('/')[url.split('/').length - 1]}_schedule.json`,
+                saveToXlsx: true,
+                xlsxFilename: `data/xlsx/${url.split('/')[url.split('/').length - 1]}`,
+            }
+        }
+        // 46-50, 50-54 (вечернее отделение), 54-58 (филиал)
+        return Promise.all(linksToParse.slice(54, 55).map(url => downloadSchedule(getOptsForSchedule(url))));
     })
     .catch(err => {
         // handle error
