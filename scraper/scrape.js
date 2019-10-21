@@ -27,7 +27,7 @@ rp(url)
             }
         }
         // 46-50, 50-54 (вечернее отделение), 54-58 (филиал)
-        return Promise.all(linksToParse.slice(54, 55).map(url => downloadSchedule(getOptsForSchedule(url))));
+        return Promise.all(linksToParse.slice(46, 47).map(url => downloadSchedule(getOptsForSchedule(url))));
     })
     .catch(err => {
         // handle error

@@ -1,10 +1,14 @@
 const xlsx = require('js-xlsx');
 
+const weekDays = {
+    'понедельник': 0, 'вторник': 1, 'среда': 2, 'четверг': 3, 'пятница': 4, 'суббота': 5, 'воскресенье': 6
+}
+
 const getValueOn = function (worksheet, columnN, rowN, merged = false) {
     try {
         return worksheet[xlsx.utils.encode_cell({c: columnN, r: rowN})].v;
     } catch {
-        console.log(`Undefined value at [${columnN}, ${rowN}]`);
+        // console.log(`Undefined value at [${columnN}, ${rowN}]`);
 
         if (merged) return '';
 
@@ -16,7 +20,7 @@ const getValueOn = function (worksheet, columnN, rowN, merged = false) {
         return Array.from(Array(tempMerge.e.r - tempMerge.s.r + 1).keys()).map(item => item + tempMerge.s.r)
             .map(row => getValueOn(worksheet, columnN, row, true))
             .filter(item => item !== '')
-            .join(' ');
+            .join('\r\n');
 
         
         if (tempMerge = worksheet['!merges'].find(range => range.s.c == columnN && range.e.r == rowN))
@@ -52,6 +56,7 @@ const parseXls = function (options) {
     const schedule = {
         timeOfClass: [],
         groupsNames: [],
+        fullGroupNames: [],
     };
 
     const tableStart = (() => { for (let colN = 0; colN < 5; colN++) if (getValueOn(worksheet, colN, 1) == 'День недели') return colN; })() || 0;
@@ -107,8 +112,10 @@ const parseXls = function (options) {
 
     while (oneDayCellsNum != 1) {
 
+        let weekDay = weekDays[getValueOn(worksheet, tableStart, rowStart, true).trim().toLowerCase()];
+
         rowStartArray.push({
-            rowStart, oneDayCellsNum, oneDaySpan
+            rowStart, oneDayCellsNum, weekDay, oneDaySpan
         });
 
         rowStart += oneDayCellsNum;
@@ -135,21 +142,29 @@ const parseXls = function (options) {
 
         firstGroup.groupColArray.forEach(shift => {
             // console.log(123, getValueOn(worksheet, colN + shift, 1));
-            let groupName = getValueOn(worksheet, colN + shift, 1).replace('(', ' ').split(' ')[0];
-            if (groupName !== '')
+            const fullGroupName = getValueOn(worksheet, colN + shift, 1).trim();
+            const groupNamesArray = fullGroupName.split(',').map(item => item.trim().replace('(', ' ').split(' ')[0]);
+            const groupName = groupNamesArray[0];
+            if (groupName !== '') {
                 schedule.groupsNames.push(groupName);
+                schedule.fullGroupNames.push(fullGroupName);
+            }
             else
                 return;
 
             console.log(groupName);
 
-            schedule[groupName] = { 'I': [], 'II': [] };
+            schedule[groupName] = { 'I': {}, 'II': {}, fullGroupName };
+
+            groupNamesArray.slice(1).forEach(group => {
+                schedule[group] = { 'I': {}, 'II': {}, fullGroupName };
+            });
 
             // for (let dayN = 0; dayN < 6; dayN++) {
             // while (oneDayCellsNum != 1) {
-            rowStartArray.forEach(({ rowStart, oneDayCellsNum }) => {
+            rowStartArray.forEach(({ rowStart, oneDayCellsNum, weekDay }) => {
                 let scheduleClass = {};
-                let scheduleOfDay = { 'I': [], 'II': [] };
+                let scheduleOfDay = { 'I': {}, 'II': {} };
 
                 for (let classN = 0; classN < oneDayCellsNum; classN++) { // classDuration.length * 2
                     if (firstGroup.oneGroupWidth == 4) {
@@ -166,7 +181,9 @@ const parseXls = function (options) {
                             'classRoom': getValueOn(worksheet, colN + shift + 2, rowStart + classN),
                         }
                     }
-                    scheduleOfDay[classN % 2 ? 'II' : 'I'].push(scheduleClass);
+                    
+                    if (Object.keys(scheduleClass).some(key => scheduleClass[key] !== ''))
+                        scheduleOfDay[classN % 2 ? 'II' : 'I'][Math.floor(classN / 2)] = scheduleClass;
                 }
 
                 // schedule[groupName].push(scheduleOfDay);
@@ -179,8 +196,44 @@ const parseXls = function (options) {
                 //     'II': [...schedule[groupName]['II'], scheduleOfDay['II']]
                 // }
 
-                schedule[groupName]['I'].push(scheduleOfDay['I']);
-                schedule[groupName]['II'].push(scheduleOfDay['II']);
+                
+                if (Object.keys(scheduleOfDay['I']).length !== 0) {
+                    if (schedule[groupName]['I'][weekDay] && Object.keys(schedule[groupName]['I'][weekDay]).length !== 0)
+                        Object.keys(scheduleOfDay['I']).forEach(key => {
+                            if (key in schedule[groupName]['I'][weekDay])
+                                Object.keys(schedule[groupName]['I'][weekDay][key]).forEach(prop => {
+                                    schedule[groupName]['I'][weekDay][key][prop] += '\r\n' + scheduleOfDay['I'][key][prop];
+                                });
+                            else
+                                schedule[groupName]['I'][weekDay][key] = scheduleOfDay['I'][key];
+                        });
+                    else
+                        schedule[groupName]['I'][weekDay] = scheduleOfDay['I'];
+                }
+
+                if (Object.keys(scheduleOfDay['II']).length !== 0) {
+                    if (schedule[groupName]['II'][weekDay] && Object.keys(schedule[groupName]['II'][weekDay]).length !== 0)
+                        Object.keys(scheduleOfDay['II']).forEach(key => {
+                            if (key in schedule[groupName]['II'][weekDay])
+                                Object.keys(schedule[groupName]['II'][weekDay][key]).forEach(prop => {
+                                    schedule[groupName]['II'][weekDay][key][prop] += '\r\n' + scheduleOfDay['II'][key][prop];
+                                });
+                            else
+                                schedule[groupName]['II'][weekDay][key] = scheduleOfDay['II'][key];
+                        });
+                    else
+                        schedule[groupName]['II'][weekDay] = scheduleOfDay['II'];
+                }
+
+                if (groupNamesArray.length > 1) {
+                    groupNamesArray.slice(1).forEach(group => {
+                        schedule[group]['I'][weekDay] = schedule[groupName]['I'][weekDay]
+                        schedule[group]['II'][weekDay] = schedule[groupName]['II'][weekDay]
+                    });
+                }
+
+                // if (Object.keys(scheduleOfDay['II']).length !== 0)
+                //     schedule[groupName]['II'][weekDay] = scheduleOfDay['II'];
             });
         })
     }
