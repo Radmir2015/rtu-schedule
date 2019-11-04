@@ -70,39 +70,40 @@ const parseXls = function (options) {
     // console.log(tableStart, oneDaySpan);
     let oneDayCellsNum = getOneDayCellsNum(oneDaySpan);
 
-    for (let rowN = oneDaySpan.s.r; rowN < oneDaySpan.e.r; rowN += 2) {
-        schedule.timeOfClass.push([
-            getValueOn(worksheet, oneDaySpan.s.c + 2, rowN),
-            getValueOn(worksheet, oneDaySpan.s.c + 3, rowN),
-        ]);
-    }
+    // for (let rowN = oneDaySpan.s.r; rowN < oneDaySpan.e.r; rowN += 2) {
+    //     schedule.timeOfClass.push([
+    //         getValueOn(worksheet, oneDaySpan.s.c + 2, rowN),
+    //         getValueOn(worksheet, oneDaySpan.s.c + 3, rowN),
+    //     ]);
+    // }
 
     // let groupColArray = [5, 9, 13];
     // let oneGroupWidth = 4;
     
-    const getFirstGroup = function(shift) {
-        if (getValueOn(worksheet, shift + 4, 2).trim() == 'Предмет') {
-            if (getValueOn(worksheet, shift + 7, 2).trim() == 'Предмет') {
+    const getFirstGroup = function(shift, value = 'Предмет') {
+        if (getValueOn(worksheet, shift + 4, 2).trim() == value) {
+            if (getValueOn(worksheet, shift + 7, 2).trim() == value) {
                 return { oneGroupWidth: 3, groupColArray: [4, 7, 10] }
-            } else if (getValueOn(worksheet, shift + 8, 2).trim() == 'Предмет') {
+            } else if (getValueOn(worksheet, shift + 8, 2).trim() == value) {
                 return { oneGroupWidth: 4, groupColArray: [4, 8, 12] }
             }
         }
-        else if (getValueOn(worksheet, shift + 5, 2).trim() == 'Предмет') {
-            if (getValueOn(worksheet, shift + 8, 2).trim() == 'Предмет') {
+        else if (getValueOn(worksheet, shift + 5, 2).trim() == value) {
+            if (getValueOn(worksheet, shift + 8, 2).trim() == value) {
                 return { oneGroupWidth: 3, groupColArray: [5, 8, 11] }
-            } else if (getValueOn(worksheet, shift + 9, 2).trim() == 'Предмет') {
+            } else if (getValueOn(worksheet, shift + 9, 2).trim() == value) {
                 return { oneGroupWidth: 4, groupColArray: [5, 9, 13] }
             }
         }
         else {
             console.log('Wtf');
+            return null;
             return { oneGroupWidth: 4, groupColArray: [5, 9, 13] }
         }
     }
 
     // let groupsBlockOffset = ((groupColArr) => groupColArr[groupColArr.length - 1] + (groupColArr[1] - groupColArr[0]))(groupColArray);
-    let firstGroup = getFirstGroup(0);
+    let firstGroup = getFirstGroup(tableStart) || getFirstGroup(tableStart, 'Дисциплина');
     let groupsBlockOffset = firstGroup.groupColArray[firstGroup.groupColArray.length - 1] + firstGroup.oneGroupWidth;
 
     let rowStart = 3;
@@ -110,21 +111,92 @@ const parseXls = function (options) {
 
     let rowStartArray = [];
 
-    while (oneDayCellsNum != 1) {
+    const getAllMergedRowsByCol = function(colStart = tableStart, rowStart = 3, rowEnd = Infinity, rowEndPriority = false, returnNonMerged = false) {
+        // defaults are for the weekdays
+        let rowStartArray = [];
+        rowStart = rowStart || 3;
+        let oneDaySpan;
+        let oneDayCellsNum;
+        do {
+            oneDaySpan = getOneDaySpan(colStart, rowStart);
+            oneDayCellsNum = oneDaySpan === undefined ? 1 : getOneDayCellsNum(oneDaySpan);
 
-        let weekDay = weekDays[getValueOn(worksheet, tableStart, rowStart, true).trim().toLowerCase()];
+            if (!returnNonMerged)
+                if (!rowEndPriority && oneDayCellsNum == 1 || rowStart >= rowEnd)
+                    return rowStartArray;
 
-        rowStartArray.push({
-            rowStart, oneDayCellsNum, weekDay, oneDaySpan
-        });
+            // console.log(colStart, rowStart, getValueOn(worksheet, colStart, rowStart));
 
-        rowStart += oneDayCellsNum;
-        dayN++;
+            let value = getValueOn(worksheet, colStart, rowStart, true);
+            
+            if (typeof value === 'string' || value instanceof String)
+                value = value.trim().toLowerCase();
+    
+            rowStartArray.push({
+                rowStart, oneDayCellsNum, value, oneDaySpan
+            });
+    
+            rowStart += oneDayCellsNum;
 
-        oneDaySpan = getOneDaySpan(tableStart, oneDaySpan.e.r + 1);
-        oneDayCellsNum = oneDaySpan === undefined ? 1 : getOneDayCellsNum(oneDaySpan);
+        } while ((rowEndPriority || oneDayCellsNum != 1) && rowStart < rowEnd);
 
+        return rowStartArray;
     }
+
+    const weekDayClassN = [];
+
+    rowStartArray = getAllMergedRowsByCol().map(({ value, ...rest }) => ({ value: weekDays[value], ...rest }));
+
+    rowStartArray.forEach(weekDay => {
+        // weekDayClassN[weekDay.value] = [];
+        weekDayClassN.push([]);
+        getAllMergedRowsByCol(tableStart + 1, weekDay.oneDaySpan.s.r, weekDay.oneDaySpan.e.r + 1).forEach(classN => {
+            // weekDayClassN[weekDay.value][+classN.value - 1] = {};
+            // weekDayClassN[weekDayClassN.length - 1][+classN.value - 1] =  {};
+            weekDayClassN[weekDayClassN.length - 1].push({});
+            // console.log(classN);
+            // console.log(getValueOn(worksheet, tableStart + 4, classN.oneDaySpan.s.r));
+            getAllMergedRowsByCol(tableStart + 4, classN.oneDaySpan.s.r, classN.oneDaySpan.e.r + 1, true, true).forEach(evenness => {
+                // weekDayClassN[weekDay.value][+classN.value - 1][evenness.value] = evenness.oneDayCellsNum;
+                // weekDayClassN[weekDayClassN.length - 1][+classN.value - 1][evenness.value] = evenness.oneDayCellsNum;
+                weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1][evenness.value] = evenness.oneDayCellsNum;
+                // console.log(evenness.value);
+            });
+
+            weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['time'] = [
+                getValueOn(worksheet, classN.oneDaySpan.s.c + 1,  classN.rowStart),
+                getValueOn(worksheet, classN.oneDaySpan.s.c + 2,  classN.rowStart),
+            ];
+
+            weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['classNumber'] = classN.value;
+        });
+    });
+
+    console.log(weekDayClassN);
+
+    // index of the day with the max amount of classes
+    const maxClasses = weekDayClassN.map(item => item.length).indexOf(Math.max(...weekDayClassN.map(item => item.length)));
+
+    weekDayClassN[maxClasses].forEach(classN => schedule.timeOfClass.push({ time: classN.time, classNumber: classN.classNumber }));
+    // console.log(maxClasses);
+    // console.log(schedule.timeOfClass);
+    // weekDayClassN.forEach(item => item.forEach(item1 => console.log(item1.time)));
+
+    // while (oneDayCellsNum != 1) {
+
+    //     let weekDay = weekDays[getValueOn(worksheet, tableStart, rowStart, true).trim().toLowerCase()];
+
+    //     rowStartArray.push({
+    //         rowStart, oneDayCellsNum, weekDay, oneDaySpan
+    //     });
+
+    //     rowStart += oneDayCellsNum;
+    //     dayN++;
+
+    //     oneDaySpan = getOneDaySpan(tableStart, oneDaySpan.e.r + 1);
+    //     oneDayCellsNum = oneDaySpan === undefined ? 1 : getOneDayCellsNum(oneDaySpan);
+
+    // }
 
     for (let colN = rowStartArray[0].oneDaySpan.s.c; colN < rowsLength; colN += groupsBlockOffset) {
         // if (!(getValueOn(worksheet, colN, 1) == 'День недели')) {
@@ -137,7 +209,7 @@ const parseXls = function (options) {
         }
         colN -= 1;
         
-        firstGroup = getFirstGroup(colN);
+        firstGroup = getFirstGroup(colN) || getFirstGroup(colN, 'Дисциплина');
         groupsBlockOffset = firstGroup.groupColArray[firstGroup.groupColArray.length - 1] + firstGroup.oneGroupWidth;
 
         firstGroup.groupColArray.forEach(shift => {
@@ -160,9 +232,11 @@ const parseXls = function (options) {
                 schedule[group] = { 'I': {}, 'II': {}, fullGroupName };
             });
 
+
+
             // for (let dayN = 0; dayN < 6; dayN++) {
             // while (oneDayCellsNum != 1) {
-            rowStartArray.forEach(({ rowStart, oneDayCellsNum, weekDay }) => {
+            rowStartArray.forEach(({ rowStart, oneDayCellsNum, value: weekDay }) => {
                 let scheduleClass = {};
                 let scheduleOfDay = { 'I': {}, 'II': {} };
 
@@ -195,7 +269,19 @@ const parseXls = function (options) {
                 //     'I': [...schedule[groupName]['I'], scheduleOfDay['I']],
                 //     'II': [...schedule[groupName]['II'], scheduleOfDay['II']]
                 // }
-
+                
+                const appendClass = function(schedule, daySchedule, even) { // schedule = schedule[groupName]['I'][weekDay]
+                    // schedule = { ...schedule }; daySchedule = { ...daySchedule };
+                    Object.keys(daySchedule[even]).forEach(key => {
+                        if (key in schedule)
+                            Object.keys(schedule[key]).forEach(prop => {
+                                schedule[key][prop] += '\r\n' + daySchedule[even][key][prop];
+                            });
+                        else
+                            schedule[key] = daySchedule[even][key];
+                    });
+                    // return schedule;
+                }
                 
                 if (Object.keys(scheduleOfDay['I']).length !== 0) {
                     if (schedule[groupName]['I'][weekDay] && Object.keys(schedule[groupName]['I'][weekDay]).length !== 0)

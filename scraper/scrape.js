@@ -15,7 +15,7 @@ rp(url)
             if (!link.endsWith('pdf'))
                 linksToParse.push(link);
         }
-        console.log(linksToParse);
+        console.log(linksToParse.map((item, ind) => `[${ind}] = ${item}`));
         
         const getOptsForSchedule = function(url) {
             return opts = {
@@ -27,7 +27,7 @@ rp(url)
             }
         }
         // 46-50, 50-54 (вечернее отделение), 54-58 (филиал)
-        return Promise.all(linksToParse.slice(46, 47).map(url => downloadSchedule(getOptsForSchedule(url))));
+        return Promise.all(linksToParse.slice(67, 68).map(url => downloadSchedule(getOptsForSchedule(url))));
     })
     .catch(err => {
         // handle error
