@@ -1,5 +1,12 @@
 const xlsx = require('js-xlsx');
 
+const zip = function() {
+    var args = [].slice.call(arguments);
+    var shortest = args.length == 0 ? [] : args.reduce((a, b) => a.length < b.length ? a : b);
+
+    return shortest.map((_, i) => args.map(array => array[i]));
+}
+
 const weekDays = {
     'понедельник': 0, 'вторник': 1, 'среда': 2, 'четверг': 3, 'пятница': 4, 'суббота': 5, 'воскресенье': 6
 }
@@ -154,18 +161,19 @@ const parseXls = function (options) {
             // weekDayClassN[weekDay.value][+classN.value - 1] = {};
             // weekDayClassN[weekDayClassN.length - 1][+classN.value - 1] =  {};
             weekDayClassN[weekDayClassN.length - 1].push({});
+            weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['evenness'] = {};
             // console.log(classN);
             // console.log(getValueOn(worksheet, tableStart + 4, classN.oneDaySpan.s.r));
             getAllMergedRowsByCol(tableStart + 4, classN.oneDaySpan.s.r, classN.oneDaySpan.e.r + 1, true, true).forEach(evenness => {
                 // weekDayClassN[weekDay.value][+classN.value - 1][evenness.value] = evenness.oneDayCellsNum;
                 // weekDayClassN[weekDayClassN.length - 1][+classN.value - 1][evenness.value] = evenness.oneDayCellsNum;
-                weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1][evenness.value] = evenness.oneDayCellsNum;
+                weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['evenness'][evenness.value] = evenness.oneDayCellsNum;
                 // console.log(evenness.value);
             });
 
             weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['time'] = [
-                getValueOn(worksheet, classN.oneDaySpan.s.c + 1,  classN.rowStart),
-                getValueOn(worksheet, classN.oneDaySpan.s.c + 2,  classN.rowStart),
+                getValueOn(worksheet, classN.oneDaySpan.s.c + 1, classN.rowStart),
+                getValueOn(worksheet, classN.oneDaySpan.s.c + 2, classN.rowStart),
             ];
 
             weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['classNumber'] = classN.value;
@@ -226,39 +234,123 @@ const parseXls = function (options) {
 
             console.log(groupName);
 
-            schedule[groupName] = { 'I': {}, 'II': {}, fullGroupName };
+            const getScheduleClass = (colN, rowN) => {
+                const getScheduleClassFromTable = (args) =>
+                        // args.map( (propName, inx) => ({[propName]: getValueOn(worksheet, colN + shift + inx, rowN)}) );
+                        Object.assign({}, ...Array.from(args, (propName, inx) => ({[propName]: getValueOn(worksheet, colN + shift + inx, rowN, true)})));
+                        
+                if (firstGroup.oneGroupWidth == 4) {
+                    return getScheduleClassFromTable(['name', 'type', 'teacher', 'classRoom']);
+                } else if (firstGroup.oneGroupWidth == 3) {
+                    return getScheduleClassFromTable(['name', 'type', 'classRoom']);
+                }
+            }
+
+            const appendClass = function(schedule, daySchedule, key) { // schedule = schedule[groupName]['I'][weekDay]
+                if (key in schedule) // IMPORTANT: key => number of class in order (0, 1, 2, ...)
+                    Object.keys(schedule[key]).forEach(prop => {
+                        schedule[key][prop] += '\r\n' + daySchedule[prop];
+                    });
+                else
+                    schedule[key] = daySchedule;
+                return schedule;
+            } 
+
+            const appendClasses = function(schedule, daySchedule, even, key) { // schedule = schedule[groupName]['I'][weekDay]
+                if (key in schedule) // IMPORTANT: key => number of class in order (0, 1, 2, ...)
+                    Object.keys(schedule[key]).forEach(prop => {
+                        schedule[key][prop] += '\r\n' + daySchedule[even][key][prop];
+                    });
+                else
+                    schedule[key] = daySchedule[even][key];
+                return schedule;
+            }
+
+            const appendDayClasses = function(schedule, daySchedule, even) { // schedule = schedule[groupName]['I'][weekDay]
+                // schedule = { ...schedule }; daySchedule = { ...daySchedule };
+                if (Object.keys(daySchedule[even]).length !== 0) {
+                    if (schedule && Object.keys(schedule).length !== 0)
+                        Object.keys(daySchedule[even]).forEach(key => {
+                            schedule = appendClasses(schedule, daySchedule, even, key);
+                            // if (key in schedule)
+                            //     Object.keys(schedule[key]).forEach(prop => {
+                            //         schedule[key][prop] += '\r\n' + daySchedule[even][key][prop];
+                            //     });
+                            // else
+                            //     schedule[key] = daySchedule[even][key];
+                        });
+                    else
+                        schedule = daySchedule[even];
+                }
+                return schedule;
+            }
+
+            const getEmptyDictFromKeys = function(obj, defaultValue = {}, func = str => str.toUpperCase()) {
+                return Object.assign({}, ...Array.from(Object.keys(obj), key => ({[func(key)]: defaultValue})));
+            }
+
+            // console.log('weekday', weekDayClassN[maxClasses]);
+
+            const getEvennessDefaultDict = () => JSON.parse(JSON.stringify(getEmptyDictFromKeys(weekDayClassN[maxClasses][0]['evenness'])));
+
+            schedule[groupName] = { ...getEvennessDefaultDict(), fullGroupName };
+
+            // console.log('schedule', schedule[groupName]);
 
             groupNamesArray.slice(1).forEach(group => {
-                schedule[group] = { 'I': {}, 'II': {}, fullGroupName };
+                schedule[group] = { ...getEvennessDefaultDict(), fullGroupName };
             });
-
-
 
             // for (let dayN = 0; dayN < 6; dayN++) {
             // while (oneDayCellsNum != 1) {
-            rowStartArray.forEach(({ rowStart, oneDayCellsNum, value: weekDay }) => {
+            zip(rowStartArray, weekDayClassN).forEach(( [{ rowStart, oneDayCellsNum, value: weekDay }, arrayOfEvenness] ) => {
                 let scheduleClass = {};
-                let scheduleOfDay = { 'I': {}, 'II': {} };
+                let scheduleOfDay = { ...getEvennessDefaultDict() };
 
-                for (let classN = 0; classN < oneDayCellsNum; classN++) { // classDuration.length * 2
-                    if (firstGroup.oneGroupWidth == 4) {
-                        scheduleClass = {
-                            'name': getValueOn(worksheet, colN + shift, rowStart + classN),
-                            'type': getValueOn(worksheet, colN + shift + 1, rowStart + classN),
-                            'teacher': getValueOn(worksheet, colN + shift + 2, rowStart + classN),
-                            'classRoom': getValueOn(worksheet, colN + shift + 3, rowStart + classN),
+                let rowN = rowStart;
+
+                arrayOfEvenness.forEach((classNObj, classN) => {
+
+                    Object.entries(classNObj.evenness).forEach( ([evenOdd, oneClassSpan]) => { // notice: evenOdd = 'i' || 'ii'
+                        
+                        for (let i = 0; i < oneClassSpan; i++) {
+                            scheduleClass = getScheduleClass(colN, rowN);
+
+                            rowN++;
+
+                            if (Object.keys(scheduleClass).some(key => scheduleClass[key] !== ''))
+                                // scheduleOfDay[classN % 2 ? 'II' : 'I'][Math.floor(classN / 2)] = scheduleClass;
+                                scheduleOfDay[evenOdd.toUpperCase()] = appendClass(scheduleOfDay[evenOdd.toUpperCase()], scheduleClass, classN);
+
                         }
-                    } else if (firstGroup.oneGroupWidth == 3) {
-                        scheduleClass = {
-                            'name': getValueOn(worksheet, colN + shift, rowStart + classN),
-                            'type': getValueOn(worksheet, colN + shift + 1, rowStart + classN),
-                            'classRoom': getValueOn(worksheet, colN + shift + 2, rowStart + classN),
-                        }
-                    }
+
+                    });
+
+                });
+
+                schedule[groupName]['I'][weekDay] = appendDayClasses(schedule[groupName]['I'][weekDay], scheduleOfDay, 'I');
+                schedule[groupName]['II'][weekDay] = appendDayClasses(schedule[groupName]['II'][weekDay], scheduleOfDay, 'II');
+
+                // for (let classN = 0; classN < oneDayCellsNum; classN++) { // classDuration.length * 2
+                //     if (firstGroup.oneGroupWidth == 4) {
+                //         scheduleClass = {
+                //             'name': getValueOn(worksheet, colN + shift, rowStart + classN),
+                //             'type': getValueOn(worksheet, colN + shift + 1, rowStart + classN),
+                //             'teacher': getValueOn(worksheet, colN + shift + 2, rowStart + classN),
+                //             'classRoom': getValueOn(worksheet, colN + shift + 3, rowStart + classN),
+                //         }
+                //     } else if (firstGroup.oneGroupWidth == 3) {
+                //         scheduleClass = {
+                //             'name': getValueOn(worksheet, colN + shift, rowStart + classN),
+                //             'type': getValueOn(worksheet, colN + shift + 1, rowStart + classN),
+                //             'classRoom': getValueOn(worksheet, colN + shift + 2, rowStart + classN),
+                //         }
+                //     }
                     
-                    if (Object.keys(scheduleClass).some(key => scheduleClass[key] !== ''))
-                        scheduleOfDay[classN % 2 ? 'II' : 'I'][Math.floor(classN / 2)] = scheduleClass;
-                }
+                //     if (Object.keys(scheduleClass).some(key => scheduleClass[key] !== ''))
+                //         scheduleOfDay[classN % 2 ? 'II' : 'I'][Math.floor(classN / 2)] = scheduleClass;
+                // }
+            });
 
                 // schedule[groupName].push(scheduleOfDay);
 
@@ -270,57 +362,45 @@ const parseXls = function (options) {
                 //     'II': [...schedule[groupName]['II'], scheduleOfDay['II']]
                 // }
                 
-                const appendClass = function(schedule, daySchedule, even) { // schedule = schedule[groupName]['I'][weekDay]
-                    // schedule = { ...schedule }; daySchedule = { ...daySchedule };
-                    Object.keys(daySchedule[even]).forEach(key => {
-                        if (key in schedule)
-                            Object.keys(schedule[key]).forEach(prop => {
-                                schedule[key][prop] += '\r\n' + daySchedule[even][key][prop];
-                            });
-                        else
-                            schedule[key] = daySchedule[even][key];
-                    });
-                    // return schedule;
-                }
-                
-                if (Object.keys(scheduleOfDay['I']).length !== 0) {
-                    if (schedule[groupName]['I'][weekDay] && Object.keys(schedule[groupName]['I'][weekDay]).length !== 0)
-                        Object.keys(scheduleOfDay['I']).forEach(key => {
-                            if (key in schedule[groupName]['I'][weekDay])
-                                Object.keys(schedule[groupName]['I'][weekDay][key]).forEach(prop => {
-                                    schedule[groupName]['I'][weekDay][key][prop] += '\r\n' + scheduleOfDay['I'][key][prop];
-                                });
-                            else
-                                schedule[groupName]['I'][weekDay][key] = scheduleOfDay['I'][key];
-                        });
-                    else
-                        schedule[groupName]['I'][weekDay] = scheduleOfDay['I'];
-                }
+                // if (Object.keys(scheduleOfDay['I']).length !== 0) {
+                //     if (schedule[groupName]['I'][weekDay] && Object.keys(schedule[groupName]['I'][weekDay]).length !== 0)
+                //         Object.keys(scheduleOfDay['I']).forEach(key => {
+                //             if (key in schedule[groupName]['I'][weekDay])
+                //                 Object.keys(schedule[groupName]['I'][weekDay][key]).forEach(prop => {
+                //                     schedule[groupName]['I'][weekDay][key][prop] += '\r\n' + scheduleOfDay['I'][key][prop];
+                //                 });
+                //             else
+                //                 schedule[groupName]['I'][weekDay][key] = scheduleOfDay['I'][key];
+                //         });
+                //     else
+                //         schedule[groupName]['I'][weekDay] = scheduleOfDay['I'];
+                // }
 
-                if (Object.keys(scheduleOfDay['II']).length !== 0) {
-                    if (schedule[groupName]['II'][weekDay] && Object.keys(schedule[groupName]['II'][weekDay]).length !== 0)
-                        Object.keys(scheduleOfDay['II']).forEach(key => {
-                            if (key in schedule[groupName]['II'][weekDay])
-                                Object.keys(schedule[groupName]['II'][weekDay][key]).forEach(prop => {
-                                    schedule[groupName]['II'][weekDay][key][prop] += '\r\n' + scheduleOfDay['II'][key][prop];
-                                });
-                            else
-                                schedule[groupName]['II'][weekDay][key] = scheduleOfDay['II'][key];
-                        });
-                    else
-                        schedule[groupName]['II'][weekDay] = scheduleOfDay['II'];
-                }
+                // if (Object.keys(scheduleOfDay['II']).length !== 0) {
+                //     if (schedule[groupName]['II'][weekDay] && Object.keys(schedule[groupName]['II'][weekDay]).length !== 0)
+                //         Object.keys(scheduleOfDay['II']).forEach(key => {
+                //             // console.log('12312312312', schedule[groupName]['II'][weekDay]);
+                //             if (key in schedule[groupName]['II'][weekDay])
+                //                 Object.keys(schedule[groupName]['II'][weekDay][key]).forEach(prop => {
+                //                     schedule[groupName]['II'][weekDay][key][prop] += '\r\n' + scheduleOfDay['II'][key][prop];
+                //                 });
+                //             else
+                //                 schedule[groupName]['II'][weekDay][key] = scheduleOfDay['II'][key];
+                //         });
+                //     else
+                //         schedule[groupName]['II'][weekDay] = scheduleOfDay['II'];
+                // }
 
-                if (groupNamesArray.length > 1) {
-                    groupNamesArray.slice(1).forEach(group => {
-                        schedule[group]['I'][weekDay] = schedule[groupName]['I'][weekDay]
-                        schedule[group]['II'][weekDay] = schedule[groupName]['II'][weekDay]
-                    });
-                }
+            if (groupNamesArray.length > 1) {
+                groupNamesArray.slice(1).forEach(group => {
+                    schedule[group]['I'][weekDay] = schedule[groupName]['I'][weekDay]
+                    schedule[group]['II'][weekDay] = schedule[groupName]['II'][weekDay]
+                });
+            }
 
                 // if (Object.keys(scheduleOfDay['II']).length !== 0)
                 //     schedule[groupName]['II'][weekDay] = scheduleOfDay['II'];
-            });
+            // });
         })
     }
 
