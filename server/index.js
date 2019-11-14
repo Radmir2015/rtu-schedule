@@ -1,13 +1,17 @@
 const express = require('express');
 const app = express();
 
-const port = process.env.PORT || 80;
+const port = process.env.PORT || 5000;
 
 let schedules = [];
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('json spaces', 2);
+
+app.get('/', (req, res) => {
+    response.write('Use "/ + group name" to get json of schedule of the group.');
+})
 
 app.get('/:groupName', (request, response) => {
     const group = request.params.groupName.toUpperCase();
@@ -39,14 +43,14 @@ app.get('/:groupName', (request, response) => {
 })
 
 app.listen(port, 'localhost', () => {
-    console.log('Server is running...');
+    console.log(`Server is running on ${port}...`);
 
     console.log('Start scraping...');
     (async () => {
         schedules = await require('../scraper/scrape')();
-        console.log('scrape', schedules.length);
+        console.log(`Scraped ${schedules.length} tables.`);
+        console.log('End of scraping...');
     })();
-    console.log('End of scraping...');
 });
 
 // app.on('listening', () => {
