@@ -55,7 +55,14 @@ const parseXls = function (options) {
             throw 'No type of data specified';
     })();
 
-    const worksheet = wbook.Sheets[wbook.SheetNames[0]];
+    // const worksheet = wbook.Sheets[wbook.SheetNames[0]];
+    // console.log('sss', wbook.SheetNames);
+    const scheduleTotal = [];
+
+    for (const worksheetName of wbook.SheetNames) {
+
+        console.log('Sheetname:', worksheetName);
+        let worksheet = wbook.Sheets[worksheetName];
 
     const rowsLength = xlsx.utils.decode_range(worksheet['!ref']).e.c + 1;
     console.log(`Length of the table is ${rowsLength}.`);
@@ -218,12 +225,13 @@ const parseXls = function (options) {
         colN -= 1;
         
         firstGroup = getFirstGroup(colN) || getFirstGroup(colN, 'Дисциплина');
+        // console.log('firstGroup', firstGroup)
         groupsBlockOffset = firstGroup.groupColArray[firstGroup.groupColArray.length - 1] + firstGroup.oneGroupWidth;
 
         firstGroup.groupColArray.forEach(shift => {
             // console.log(123, getValueOn(worksheet, colN + shift, 1));
             const fullGroupName = getValueOn(worksheet, colN + shift, 1).trim();
-            const groupNamesArray = fullGroupName.split(',').map(item => item.trim().replace('(', ' ').split(' ')[0]);
+            const groupNamesArray = fullGroupName.split(',').map(item => item.trim().replace('(', ' ').split(' ')[0].replace(/(\r\n|\n|\r)/gm, ""));
             const groupName = groupNamesArray[0];
             if (groupName !== '') {
                 schedule.groupsNames.push(groupName);
@@ -350,7 +358,6 @@ const parseXls = function (options) {
                 //     if (Object.keys(scheduleClass).some(key => scheduleClass[key] !== ''))
                 //         scheduleOfDay[classN % 2 ? 'II' : 'I'][Math.floor(classN / 2)] = scheduleClass;
                 // }
-            });
 
                 // schedule[groupName].push(scheduleOfDay);
 
@@ -391,12 +398,13 @@ const parseXls = function (options) {
                 //         schedule[groupName]['II'][weekDay] = scheduleOfDay['II'];
                 // }
 
-            if (groupNamesArray.length > 1) {
-                groupNamesArray.slice(1).forEach(group => {
-                    schedule[group]['I'][weekDay] = schedule[groupName]['I'][weekDay]
-                    schedule[group]['II'][weekDay] = schedule[groupName]['II'][weekDay]
-                });
-            }
+                if (groupNamesArray.length > 1) {
+                    groupNamesArray.slice(1).forEach(group => {
+                        schedule[group]['I'][weekDay] = schedule[groupName]['I'][weekDay]
+                        schedule[group]['II'][weekDay] = schedule[groupName]['II'][weekDay]
+                    });
+                }
+            });
 
                 // if (Object.keys(scheduleOfDay['II']).length !== 0)
                 //     schedule[groupName]['II'][weekDay] = scheduleOfDay['II'];
@@ -407,7 +415,12 @@ const parseXls = function (options) {
     // console.log(groupsNames);
     // console.log(schedule);
 
-    return schedule;
+    // return schedule;
+    scheduleTotal.push(schedule);
+
+    }
+
+    return scheduleTotal;
 }
 
 // parseXls({

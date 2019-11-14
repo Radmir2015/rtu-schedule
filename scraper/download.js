@@ -14,7 +14,7 @@ const downloadSchedule = function(opts) {
         ...opts,
     }
 
-    rp(options).then((body, data) => {
+    return rp(options).then((body, data) => {
 
         return [
             parseXls({
@@ -34,6 +34,8 @@ const downloadSchedule = function(opts) {
         // writeStream.end();
     }).then(([ schedule, binaryOfXlsx ]) => {
 
+        readySchedule = schedule;
+
         if (options.saveToJson)
             fs.writeFile(options.jsonFilename || 'schedule.json', JSON.stringify(schedule), err => {
                 if (err) console.error(err);
@@ -46,7 +48,9 @@ const downloadSchedule = function(opts) {
                 console.log(`File ${options.xlsxFilename || 'schedule.xlsx'} was written successfully!`);
             })
 
-        console.log(`Schedule of ${options.xlsxFilename} is done!\n`)
+        console.log(`Schedule of ${options.xlsxFilename} is done!\n`);
+
+        return schedule;
     }).catch(err => {
         console.error(err);
     })
