@@ -10,7 +10,7 @@ app.use(express.urlencoded({ extended: true }));
 app.set('json spaces', 2);
 
 app.get('/', (req, res) => {
-    res.write('Use "/ + group name" to get json of schedule of the group.');
+    res.end('Use "/ + group name" to get json of schedule of the group.');
 })
 
 app.get('/:groupName', (request, response) => {
