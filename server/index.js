@@ -42,7 +42,7 @@ app.get('/:groupName', (request, response) => {
     }
 })
 
-app.listen(port, 'localhost', () => {
+app.listen(port, () => {
     console.log(`Server is running on ${port}...`);
 
     console.log('Start scraping...');
