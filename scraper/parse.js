@@ -64,6 +64,9 @@ const parseXls = function (options) {
         console.log('Sheetname:', worksheetName);
         let worksheet = wbook.Sheets[worksheetName];
 
+        // console.log(worksheet);
+        if (Object.keys(worksheet).length === 0 || worksheet['!merges'] === undefined) continue;
+
     const rowsLength = xlsx.utils.decode_range(worksheet['!ref']).e.c + 1;
     console.log(`Length of the table is ${rowsLength}.`);
 
@@ -94,36 +97,92 @@ const parseXls = function (options) {
     // let groupColArray = [5, 9, 13];
     // let oneGroupWidth = 4;
     
+    // const getFirstGroup = function(shift, value = 'Предмет') {
+    //     let groupShift, groupColTempArr;
+    //     if (getValueOn(worksheet, shift + 4, 2).trim() == value) {
+    //         if (getValueOn(worksheet, shift + 7, 2).trim() == value) {
+    //             // return { oneGroupWidth: 3, groupColArray: [4, 7, 10] }
+    //             groupShift = 10;
+    //             groupColTempArr = [4, 7];
+    //             while (getValueOn(worksheet, shift + groupShift, 2).trim() == value) {
+    //                 groupColTempArr.push(groupShift);
+    //                 groupShift += 3;
+    //             }
+    //             return { oneGroupWidth: 3, groupColArray: groupColTempArr }
+    //         } else if (getValueOn(worksheet, shift + 8, 2).trim() == value) {
+    //             // return { oneGroupWidth: 4, groupColArray: [4, 8, 12] }
+    //             groupShift = 12;
+    //             groupColTempArr = [4, 8];
+    //             while (getValueOn(worksheet, shift + groupShift, 2).trim() == value) {
+    //                 groupColTempArr.push(groupShift);
+    //                 groupShift += 4;
+    //             }
+    //             return { oneGroupWidth: 4, groupColArray: groupColTempArr }
+    //         }
+    //     }
+    //     else if (getValueOn(worksheet, shift + 5, 2).trim() == value) {
+    //         if (getValueOn(worksheet, shift + 8, 2).trim() == value) {
+    //             // return { oneGroupWidth: 3, groupColArray: [5, 8, 11] }
+    //             groupShift = 11;
+    //             groupColTempArr = [5, 8];
+    //             while (getValueOn(worksheet, shift + groupShift, 2).trim() == value) {
+    //                 groupColTempArr.push(groupShift);
+    //                 groupShift += 3;
+    //             }
+    //             return { oneGroupWidth: 3, groupColArray: groupColTempArr }
+    //         } else if (getValueOn(worksheet, shift + 9, 2).trim() == value) {
+    //             // return { oneGroupWidth: 4, groupColArray: [5, 9, 13] }
+    //             groupShift = 13;
+    //             groupColTempArr = [5, 9];
+    //             while (getValueOn(worksheet, shift + groupShift, 2).trim() == value) {
+    //                 groupColTempArr.push(groupShift);
+    //                 groupShift += 4;
+    //             }
+    //             return { oneGroupWidth: 4, groupColArray: groupColTempArr }
+    //         }
+    //     }
+    //     else {
+    //         console.log('Wtf');
+    //         return null;
+    //         return { oneGroupWidth: 4, groupColArray: [5, 9, 13] }
+    //     }
+    // }
+
     const getFirstGroup = function(shift, value = 'Предмет') {
-        if (getValueOn(worksheet, shift + 4, 2).trim() == value) {
-            if (getValueOn(worksheet, shift + 7, 2).trim() == value) {
-                return { oneGroupWidth: 3, groupColArray: [4, 7, 10] }
-            } else if (getValueOn(worksheet, shift + 8, 2).trim() == value) {
-                return { oneGroupWidth: 4, groupColArray: [4, 8, 12] }
+        let groupShift, groupColTempArr, groupColsSuccess = [];
+        let groupCols = [ [4, 7], [4, 8], [5, 8], [5, 9] ];
+        groupCols.forEach(cols => {
+            groupColTempArr = [];
+            groupShift = cols[0]; // cols[1] + (cols[1] - cols[0]);
+            while (getValueOn(worksheet, shift + groupShift, 2).trim() == value) {
+                groupColTempArr.push(groupShift);
+                groupShift += cols[1] - cols[0];
             }
-        }
-        else if (getValueOn(worksheet, shift + 5, 2).trim() == value) {
-            if (getValueOn(worksheet, shift + 8, 2).trim() == value) {
-                return { oneGroupWidth: 3, groupColArray: [5, 8, 11] }
-            } else if (getValueOn(worksheet, shift + 9, 2).trim() == value) {
-                return { oneGroupWidth: 4, groupColArray: [5, 9, 13] }
-            }
-        }
-        else {
+            if (groupColTempArr.length !== 0)
+                groupColsSuccess.push(groupColTempArr);
+        });
+        if (groupColsSuccess.length === 0) {
             console.log('Wtf');
             return null;
-            return { oneGroupWidth: 4, groupColArray: [5, 9, 13] }
+        }
+        let tempReturn = groupColsSuccess[groupColsSuccess.map(item => item.length).indexOf(Math.max(...groupColsSuccess.map(item => item.length)))];
+        if (Math.max(...groupColsSuccess.map(item => item.length)) == 1) {
+            return { oneGroupWidth: 4, groupColArray: tempReturn }
+        } else {
+            return { oneGroupWidth: tempReturn[1] - tempReturn[0], groupColArray: tempReturn }
         }
     }
 
     // let groupsBlockOffset = ((groupColArr) => groupColArr[groupColArr.length - 1] + (groupColArr[1] - groupColArr[0]))(groupColArray);
-    let firstGroup = getFirstGroup(tableStart) || getFirstGroup(tableStart, 'Дисциплина');
+    let firstGroup = getFirstGroup(tableStart) || getFirstGroup(tableStart, 'Дисциплина') || { oneGroupWidth: 4, groupColArray: [5, 9, 13] };
     let groupsBlockOffset = firstGroup.groupColArray[firstGroup.groupColArray.length - 1] + firstGroup.oneGroupWidth;
 
     let rowStart = 3;
     let dayN = 0;
 
     let rowStartArray = [];
+
+    console.log(firstGroup);
 
     const getAllMergedRowsByCol = function(colStart = tableStart, rowStart = 3, rowEnd = Infinity, rowEndPriority = false, returnNonMerged = false) {
         // defaults are for the weekdays
@@ -171,12 +230,21 @@ const parseXls = function (options) {
             weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['evenness'] = {};
             // console.log(classN);
             // console.log(getValueOn(worksheet, tableStart + 4, classN.oneDaySpan.s.r));
-            getAllMergedRowsByCol(tableStart + 4, classN.oneDaySpan.s.r, classN.oneDaySpan.e.r + 1, true, true).forEach(evenness => {
+            getAllMergedRowsByCol(tableStart + 4, classN.oneDaySpan.s.r, classN.oneDaySpan.e.r + 1, true, true).some(evenness => { // to be able to break
                 // weekDayClassN[weekDay.value][+classN.value - 1][evenness.value] = evenness.oneDayCellsNum;
                 // weekDayClassN[weekDayClassN.length - 1][+classN.value - 1][evenness.value] = evenness.oneDayCellsNum;
+                if (evenness.value != 'i' && evenness.value != 'ii') {
+                    weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['evenness'] = {
+                        'i': 1, 'ii': 1
+                    }
+                    return true; // break
+                }
                 weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['evenness'][evenness.value] = evenness.oneDayCellsNum;
+                return false;
                 // console.log(evenness.value);
             });
+
+            // console.log(123123, weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['evenness']);
 
             weekDayClassN[weekDayClassN.length - 1][weekDayClassN[weekDayClassN.length - 1].length - 1]['time'] = [
                 getValueOn(worksheet, classN.oneDaySpan.s.c + 1, classN.rowStart),
@@ -187,7 +255,8 @@ const parseXls = function (options) {
         });
     });
 
-    console.log(weekDayClassN);
+    // console.log(weekDayClassN);
+    // weekDayClassN.forEach(i => console.log(i.evenness));
 
     // index of the day with the max amount of classes
     const maxClasses = weekDayClassN.map(item => item.length).indexOf(Math.max(...weekDayClassN.map(item => item.length)));
@@ -224,7 +293,10 @@ const parseXls = function (options) {
         }
         colN -= 1;
         
-        firstGroup = getFirstGroup(colN) || getFirstGroup(colN, 'Дисциплина');
+        let tempFirstGroup = getFirstGroup(colN) || getFirstGroup(colN, 'Дисциплина');
+        if (tempFirstGroup)
+            firstGroup = tempFirstGroup;
+        // firstGroup = getFirstGroup(colN) || getFirstGroup(colN, 'Дисциплина');
         // console.log('firstGroup', firstGroup)
         groupsBlockOffset = firstGroup.groupColArray[firstGroup.groupColArray.length - 1] + firstGroup.oneGroupWidth;
 
@@ -245,7 +317,7 @@ const parseXls = function (options) {
             const getScheduleClass = (colN, rowN) => {
                 const getScheduleClassFromTable = (args) =>
                         // args.map( (propName, inx) => ({[propName]: getValueOn(worksheet, colN + shift + inx, rowN)}) );
-                        Object.assign({}, ...Array.from(args, (propName, inx) => ({[propName]: getValueOn(worksheet, colN + shift + inx, rowN, true)})));
+                        Object.assign({}, ...Array.from(args, (propName, inx) => ({[propName]: getValueOn(worksheet, colN + shift + inx, rowN, false)}))); // was true
                         
                 if (firstGroup.oneGroupWidth == 4) {
                     return getScheduleClassFromTable(['name', 'type', 'teacher', 'classRoom']);
@@ -306,6 +378,7 @@ const parseXls = function (options) {
             // console.log('schedule', schedule[groupName]);
 
             groupNamesArray.slice(1).forEach(group => {
+                schedule.groupsNames.push(group);
                 schedule[group] = { ...getEvennessDefaultDict(), fullGroupName };
             });
 

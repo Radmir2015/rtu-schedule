@@ -4,7 +4,7 @@ const rp       = require('request-promise'),
 
 const url = 'https://www.mirea.ru/upload/medialibrary/56a/IK_3k_19_20_osen.xlsx';
 
-const downloadSchedule = function(opts) {
+const downloadSchedule = function(opts, info) {
     const options = {
         method: 'GET',
         encoding: 'binary',
@@ -15,6 +15,12 @@ const downloadSchedule = function(opts) {
     }
 
     return rp(options).then((body, data) => {
+
+        if (options.saveToXlsx)
+            fs.writeFile(options.xlsxFilename || 'schedule.xlsx', body, { encoding: 'binary' }, err => { // body is binary of xlsx
+                if (err) console.error(err);
+                console.log(`File ${options.xlsxFilename || 'schedule.xlsx'} was written successfully!`);
+            });
 
         return [
             parseXls({
@@ -34,7 +40,7 @@ const downloadSchedule = function(opts) {
         // writeStream.end();
     }).then(([ schedule, binaryOfXlsx ]) => {
 
-        readySchedule = schedule;
+        // readySchedule = schedule;
 
         if (options.saveToJson)
             fs.writeFile(options.jsonFilename || 'schedule.json', JSON.stringify(schedule), err => {
@@ -42,17 +48,25 @@ const downloadSchedule = function(opts) {
                 console.log(`File ${options.jsonFilename || 'schedule.json'} was written successfully!`);
             });
 
-        if (options.saveToXlsx)
-            fs.writeFile(options.xlsxFilename || 'schedule.xlsx', binaryOfXlsx, { encoding: 'binary' }, err => {
-                if (err) console.error(err);
-                console.log(`File ${options.xlsxFilename || 'schedule.xlsx'} was written successfully!`);
-            })
-
         console.log(`Schedule of ${options.xlsxFilename} is done!\n`);
+
+        if (info) {
+            info.parsed++;
+            info.finishedTime = new Date();
+            info.elapsed = (info.finishedTime.getTime() - info.startedTime.getTime()) / 1000;
+            console.log('info', info);
+        }
 
         return schedule;
     }).catch(err => {
+        if (info) {
+            info.error++;
+            info.finishedTime = new Date();
+            info.elapsed = (info.finishedTime.getTime() - info.startedTime.getTime()) / 1000;
+        }
+
         console.error(err);
+        console.log(options);
     })
 }
 
