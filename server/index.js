@@ -1,3 +1,4 @@
+const cors = require('cors');
 const express = require('express');
 const app = express();
 
@@ -5,13 +6,14 @@ const port = process.env.PORT || 5000;
 
 let schedules = [];
 let flattenedSchedule = [];
-let parseInfo = { parsed: 0, error: 0, total: 0, startedTime: new Date(), finishedTime: new Date(), finished: false, elapsed: 0 };
+let parseInfo = { parsed: 0, error: 0, total: 0, startedTime: new Date(), finishedTime: new Date(), finished: false, elapsed: 0, groups: 0 };
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors());
 app.set('json spaces', 2);
 
-// console.log = function() {}
+console.log = function() {}
 
 app.get('/api/info', (req, res) => {
     // res.end('Use "/ + group name" to get json of schedule of the group.');
@@ -24,6 +26,14 @@ app.get('/api/fullFlattenedSchedule', (req, res) => {
 
 app.get('/api/fullSchedule', (req, res) => {
     res.json(schedules);
+})
+
+app.get('/api/allGroups', (req, res) => {
+    let groupNames = [].concat(...flattenedSchedule.map(aSchedule => aSchedule.groupsNames));
+    res.json({
+        success: groupNames.length !== 0,
+        groupnames: groupNames
+    });
 })
 
 app.get('/api/:groupName?', (request, response) => {
@@ -86,7 +96,7 @@ app.get('/api/:groupName?', (request, response) => {
 const startParsing = (info) => new Promise((resolve, reject) => resolve(require('../scraper/scrape')(info)));
 
 app.get('/startParse', (req, res) => {
-    parseInfo = { parsed: 0, error: 0, total: 0, startedTime: new Date(), finishedTime: new Date(), finished: false, elapsed: 0 };
+    parseInfo = { parsed: 0, error: 0, total: 0, startedTime: new Date(), finishedTime: new Date(), finished: false, elapsed: 0, groups: 0 };
     res.json(parseInfo);
     console.log('Start scraping...');
     startParsing(parseInfo).then((sched) => {

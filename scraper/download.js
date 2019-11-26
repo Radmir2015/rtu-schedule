@@ -53,6 +53,7 @@ const downloadSchedule = function(opts, info) {
         if (info) {
             info.parsed++;
             info.finishedTime = new Date();
+            info.groups += schedule.map(aSchedule => aSchedule.groupsNames.length).reduce((a, b) => a + b, 0);
             info.elapsed = (info.finishedTime.getTime() - info.startedTime.getTime()) / 1000;
             console.log('info', info);
         }
