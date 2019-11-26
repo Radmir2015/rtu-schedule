@@ -1,4 +1,5 @@
 const cors = require('cors');
+const path = require('path');
 const express = require('express');
 const app = express();
 
@@ -8,12 +9,19 @@ let schedules = [];
 let flattenedSchedule = [];
 let parseInfo = { parsed: 0, error: 0, total: 0, startedTime: new Date(), finishedTime: new Date(), finished: false, elapsed: 0, groups: 0 };
 
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.set('json spaces', 2);
 
-console.log = function() {}
+// console.log = function() {}
+
+app.get('/', (req, res) => {
+    res.render('index');
+})
 
 app.get('/api/info', (req, res) => {
     // res.end('Use "/ + group name" to get json of schedule of the group.');

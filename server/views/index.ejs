@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+	<script
+		src="https://code.jquery.com/jquery-3.4.1.min.js"
+		integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+		crossorigin="anonymous">
+	</script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+	<title>RTU Schedule</title>
+</head>
+<body>
+	<div class="container" style="padding: 20px; margin: 20px">
+		<h3>RTU Schedule</h3>
+		<div class="ui compact form">
+			<div class="fields">
+				<div class="ui search field">
+					<div class="ui icon input">
+						<input class="prompt" type="text" placeholder="Название группы...">
+						<i class="search icon"></i>
+					</div>
+					<div class="results"></div>
+				</div>
+				<!-- <button class="ui primary button field" onclick="$(this).toggleClass('basic')">Нечетная</button> -->
+				<div class="ui buttons field">
+					<button class="ui primary button odd">Нечетная</button>
+					<button class="ui basic primary button even">Четная</button>
+				</div>
+			</div>
+		</div>
+		
+		<div class="ui stackable two column grid" id="schedule" style="margin-top: 10px;">
+
+		</div>
+	</div>
+</body>
+</html>
+<script>
+const weekDays = [
+    'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', //'Воскресенье'
+]
+
+function drawSchedule(schedule, evenness) {
+	$("#schedule").html('');
+	weekDays.forEach((weekDay, index) => {
+		let colElem = $(`
+			<div class="column">
+				<h3 class="header">${weekDay}</h3>
+				<table class="ui compact unstackable striped table" id="table-${index}">
+					<thead>
+						<tr>
+							<th>#</th>
+							<th><i class="wait icon"></i></th>
+							<th><i class="book icon"></i></th>
+							<th><i class="map icon"></i></th>
+							<th class="mobile-hidden-critical"><i class="user icon"></i></th>
+						</tr>
+					</thead>
+					<tbody>
+					</tbody>
+				</table>
+			</div>
+		`);
+		schedule.timeOfClass.forEach((timeObj, trInd) => {
+			// console.log(classObj);
+			if (schedule[evenness]['' + index] !== undefined && schedule[evenness]['' + index]['' + trInd] !== undefined) {
+				let classObj = schedule[evenness]['' + index]['' + trInd];
+				colElem.find("tbody").append(`
+					<tr id=table-${index}-${trInd}>
+						<td>${timeObj.classNumber}</td>
+						<td>${timeObj.time[0]} - ${timeObj.time[1]}</td>
+						<td>${classObj.name}</td>
+						<td>${classObj.classRoom || '-'}</td>
+						<td class="mobile-hidden-critical">${classObj.teacher || '-'}</td>
+					</tr>
+				`);
+			}
+			else
+				colElem.find("tbody").append(`
+					<tr id=table-${index}-${trInd}>
+						<td>${timeObj.classNumber}</td>
+						<td>${timeObj.time[0]} - ${timeObj.time[1]}</td>
+						<td>-</td>
+						<td>-</td>
+						<td class="mobile-hidden-critical">-</td>
+					</tr>
+				`);
+		});
+		$('#schedule').append(colElem)
+	});
+}
+
+$(document).ready(function() {
+	let baseUrl = 'https://rtu-schedule.herokuapp.com/api/';
+	let savedSchedule = {};
+
+	$(".odd, .even").click(function() {
+		$(".odd").toggleClass("basic");
+		$(".even").toggleClass("basic");
+		// console.log($(".basic").index());
+		if (Object.keys(savedSchedule).length !== 0)
+			drawSchedule(savedSchedule, $(".basic").index() === 0 ? 'II' : 'I')
+	})
+	
+	fetch(baseUrl + 'allGroups', { method: 'GET' }).then(data => data.json())
+		.then(data => data.groupnames.map(i => { return { title: i } }))
+		.then(groups => {
+			$('.ui.search').search({
+				source: groups,
+				onSelect: function(result, response) {
+                    // address = result.title + ', ' + result.city + ' ' + result.region;
+                    // $('#address_search').search('set value', address);
+                    //$('#address_search').find('input').val(address);
+                    // $('#address_search').search('hide results');
+                    // $('#address_search').removeClass("loading");
+					
+					fetch(baseUrl + result.title, { method: 'GET' }).then(data => data.json())
+					.then(schedule => {
+						savedSchedule = schedule;
+						drawSchedule(schedule, $(".basic").index() === 0 ? 'II' : 'I')
+					});
+					// result.title
+
+                    // return false;
+                }
+			})
+		});
+	
+	// $('.ui.search').search({
+	// 		// change search endpoint to a custom endpoint by manipulating apiSettings
+	// 	apiSettings: {
+	// 		onResponse: function(serverRes) {
+	// 			// console.log(serverRes);
+	// 			let response = { results : [] };
+	// 			response.results = serverRes.groupnames.map(i => { return { item: i } });
+	// 			console.log(response);
+	// 			return response;
+	// 		},
+	// 		url: 'https://rtu-schedule.herokuapp.com/api/allGroups'
+	// 		},
+	// });
+});
+</script>
