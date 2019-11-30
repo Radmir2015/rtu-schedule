@@ -16,6 +16,7 @@
     "express": "^4.17.1",
     "js-xlsx": "^0.8.22",
     "request": "^2.88.0",
-    "request-promise": "^4.2.4"
+    "request-promise": "^4.2.4",
+    "tiny-worker": "^2.3.0"
   }
 }
