@@ -15,8 +15,13 @@
 	<title>RTU Schedule</title>
 </head>
 <body>
-	<div class="container" style="padding: 20px; margin: 20px">
-		<h3>RTU Schedule</h3>
+	<div class="container" style="padding: 20px; margin: 0 20px">
+		<div class="ui menu">
+			<div class="header item">RTU Schedule</div>
+			<a class="active item" href="/">Расписание</a>
+			<a class="item" href="/search">Поиск</a>
+		</div>
+		<h4>Расписание группы</h4>
 		<div class="ui compact form">
 			<div class="fields">
 				<div class="ui search field">
@@ -192,25 +197,26 @@ $(document).ready(function() {
 	
 	fetch(`${baseUrl}/allGroups`, { method: 'GET' }).then(data => data.json())
 		.then(data => data.groupnames.map(i => { return { title: i } }))
+		.then(groups => groups.map((gr, inx) => { return { ...gr, id: inx } })) // for no-overlapping ids in the semantic ui search
 		.then(groups => {
 			$('.ui.search').search({
 				source: groups,
 				onSelect: function(result, response) {
-                    // address = result.title + ', ' + result.city + ' ' + result.region;
-                    // $('#address_search').search('set value', address);
-                    //$('#address_search').find('input').val(address);
-                    // $('#address_search').search('hide results');
-                    // $('#address_search').removeClass("loading");
 					
-					fetch(`${baseUrl}/${result.title}`, { method: 'GET' }).then(data => data.json())
+					let sameGroupSelect = response.length > 1 ? response.filter(gr => gr.title === result.title).findIndex(gr => gr.id === result.id) : -1;
+
+					// let sameGroupSelect = response.length > 1 && new Set(response.map(r => r.title)).size == 1 ? response.findIndex(gr => gr.id === result.id) : -1;
+
+					// console.log(sameGroupSelect);
+					
+					fetch(`${baseUrl}/${result.title}${sameGroupSelect > -1 ? `?groupSelect=${sameGroupSelect}`: ''}`, { method: 'GET' }).then(data => data.json())
 					.then(schedule => {
 						savedSchedule = schedule;
 						redraw();
 					});
-					// result.title
 
                     // return false;
-                }
+				}
 			})
 		});
 	

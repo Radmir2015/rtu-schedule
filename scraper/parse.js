@@ -373,13 +373,13 @@ const parseXls = function (options) {
 
             const getEvennessDefaultDict = () => JSON.parse(JSON.stringify(getEmptyDictFromKeys(weekDayClassN[maxClasses][0]['evenness'])));
 
-            schedule[groupName] = { ...getEvennessDefaultDict(), fullGroupName };
+            schedule[groupName] = { ...getEvennessDefaultDict(), fullGroupName, groupName };
 
             // console.log('schedule', schedule[groupName]);
 
             groupNamesArray.slice(1).forEach(group => {
                 schedule.groupsNames.push(group);
-                schedule[group] = { ...getEvennessDefaultDict(), fullGroupName };
+                schedule[group] = { ...getEvennessDefaultDict(), fullGroupName, groupName: group };
             });
 
             // for (let dayN = 0; dayN < 6; dayN++) {
