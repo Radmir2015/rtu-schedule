@@ -43,7 +43,7 @@ const getValueOn = function (worksheet, columnN, rowN, merged = false) {
     }
 }
 
-const parseXls = function (options) {
+const parseXls = function (options, db) {
     // console.log(options);
     console.log(`${options.jsonFilename} has started to build!`);
     const wbook = (() => {
@@ -491,6 +491,49 @@ const parseXls = function (options) {
     // return schedule;
     scheduleTotal.push(schedule);
 
+    db.models.Time.findOrCreate({
+        where: {
+            timeOfClass: JSON.stringify(schedule.timeOfClass)
+        }
+    }).spread((time, created) => {
+        zip(schedule.groupsNames, schedule.fullGroupNames).forEach(([gr, fgr]) => {
+            db.models.Group.create({
+                groupName: gr,
+                fullGroupName: fgr,
+            }).then(grObj => {
+                Object.keys(schedule[gr]).forEach(even => {
+                    if (even == 'I' || even == 'II') {
+                        Object.keys(schedule[gr][even]).forEach(weekD => {
+                            // console.log(schedule[gr][even][weekD], schedule[gr][even], weekD, Object.keys(weekD));
+                            if (schedule[gr][even][weekD])
+                            Object.keys(schedule[gr][even][weekD]).forEach(classN => {
+                                const classObj = schedule[gr][even][weekD][classN];
+
+                                // console.log(classObj);
+
+                                db.models.Class.findOrCreate({
+                                    where: {
+                                        name: classObj.name,
+                                        teacher: classObj.teacher,
+                                        type: classObj.type,
+                                        classRoom: classObj.classRoom,
+
+                                        evenness: even,
+                                        weekDay: weekD,
+                                        classNumber: classN,
+                                    }
+                                }).spread((clObj, cr) => {
+                                    grObj.addClasses([clObj]);
+                                })
+                            })
+                        })
+                    }
+                })
+                time.addGroups([grObj]);
+            }).catch(e => console.error(e));
+        })
+    })
+    
     }
 
     return scheduleTotal;

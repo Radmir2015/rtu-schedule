@@ -12,11 +12,15 @@
   "dependencies": {
     "cheerio": "^1.0.0-rc.3",
     "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
     "ejs": "^3.0.1",
     "express": "^4.17.1",
     "js-xlsx": "^0.8.22",
+    "pg": "^7.14.0",
+    "pg-hstore": "^2.3.3",
     "request": "^2.88.0",
     "request-promise": "^4.2.4",
+    "sequelize": "^5.21.3",
     "tiny-worker": "^2.3.0"
   }
 }

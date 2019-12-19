@@ -4,7 +4,7 @@ const rp       = require('request-promise'),
 
 const url = 'https://www.mirea.ru/upload/medialibrary/56a/IK_3k_19_20_osen.xlsx';
 
-const downloadSchedule = function(opts, info) {
+const downloadSchedule = function(opts, db, info) {
     const options = {
         method: 'GET',
         encoding: 'binary',
@@ -27,7 +27,7 @@ const downloadSchedule = function(opts, info) {
                 way: 'binary',
                 data: body,
                 ...options
-            }),
+            }, db),
             body
         ]
 

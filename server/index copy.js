@@ -3,9 +3,6 @@ const path = require('path');
 const express = require('express');
 const app = express();
 
-require('dotenv').config();
-const DB = require('../db');
-
 const port = process.env.PORT || 5000;
 
 let schedules = [];
@@ -294,13 +291,13 @@ app.get('/api/:groupName?', (request, response) => {
     }
 })
 
-const startParsing = (db, info) => new Promise((resolve, reject) => resolve(require('../scraper/scrape')(db, info)));
+const startParsing = (info) => new Promise((resolve, reject) => resolve(require('../scraper/scrape')(info)));
 
 const parsing = () => {
     parseInfo = { parsed: 0, error: 0, total: 0, startedTime: new Date(), finishedTime: new Date(), finished: false, elapsed: 0, groups: 0 };
     // res.json(parseInfo);
     console.log('Start scraping...');
-    startParsing(DB, parseInfo).then((sched) => {
+    startParsing(parseInfo).then((sched) => {
         schedules = sched;
         parseInfo.finished = true; parseInfo.finishedTime = new Date(); parseInfo.elapsed = (parseInfo.finishedTime.getTime() - parseInfo.startedTime.getTime()) / 1000;
         console.log(`Scraped ${schedules.length} tables.`);
@@ -348,157 +345,30 @@ app.get('/startParse', (req, res) => {
     
 })
 
-app.get('/db/allGroups', (req, res) => {
-    DB.models.Group.findAll().then( result => {
-        if ((req.params.verbose || req.query.verbose) === 'true') { res.json(result); return; }
+app.listen(port, () => {
+    console.log(`Server is running on ${port}...`);
 
-        res.json({
-            success: true,
-            groupnames: [...result.map(obj => obj.groupName)]
-        });
-    }).catch(e => res.json({ success: false, error: e }));
-})
+    parsing();
 
-app.get('/db/allTeachers', (req, res) => {
-    // DB.models.Class.aggregate('teacher', 'DISTINCT', { plain: false }).then(result => {
-    //     res.json(result);
+    // console.log('Start scraping...');
+    // (async (info) => {
+    //     schedules = await require('../scraper/scrape')(info);
+    //     info.finished = true; info.finishedTime = new Date(); info.elapsed = (info.finishedTime.getTime() - info.startedTime.getTime()) / 1000;
+    //     console.log(`Scraped ${schedules.length} tables.`);
+    //     console.log('End of scraping...');
+    // })(parseInfo);
+
+    // startParsing(parseInfo).then((sched) => {
+    //     schedules = sched;
+    //     parseInfo.finished = true; parseInfo.finishedTime = new Date(); parseInfo.elapsed = (parseInfo.finishedTime.getTime() - parseInfo.startedTime.getTime()) / 1000;
+    //     console.log(`Scraped ${schedules.length} tables.`);
+    //     console.log('End of scraping...');
+    //     flattenedSchedule = [];
+    //     schedules.forEach(aSchedule => {
+    //         if (aSchedule !== undefined)
+    //             flattenedSchedule = [...flattenedSchedule, ...aSchedule];
+    //     });
     // })
-    DB.models.Class.findAll({
-        attributes: [
-            [DB.Sequelize.fn('DISTINCT', DB.Sequelize.col('teacher')), 'teacher']
-        ]
-    }).then(result => {
-        if (result.length === 0) throw 'No teacher found.'
-        res.json({
-            success: true,
-            teachers: [...result.map(obj => obj.teacher)],
-        });
-    }).catch(e => {
-        res.json({
-            success: false,
-            error: e,
-        });
-    });
-})
-
-app.get('/db/teacher/:teacherName', (req, res) => {
-    let teacher = (req.params.teacherName || req.query.teacherName || '').toLowerCase();
-
-    DB.models.Class.findAll({
-        where: {
-            teacher: {
-                [DB.Sequelize.Op.iLike]: `%${teacher}%`
-            }
-        },
-        include: [DB.models.Group]
-    }).then(result => {
-        if ((req.params.verbose || req.query.verbose) === 'true') { res.json(result); return; }
-        if (result.length === 0) { res.json({success: false, error: 'Teacher hasn\'t been found.'}); return; }
-
-        DB.models.Group.findOne({
-            where: { id: result[0].groups[0].id },
-            include: [DB.models.Time]
-        }).then(gr => {
-            const finalJson = {
-                timeOfClass: {},
-    
-                'I': {},
-                'II': {},
-            }
-            finalJson.timeOfClass = JSON.parse(gr.timeOfClasses[0].timeOfClass);
-            // console.log(JSON.parse(gr.timeOfClasses[0].timeOfClass));
-            result.forEach(classObj => {
-                if (!finalJson[classObj.evenness][classObj.weekDay])
-                    finalJson[classObj.evenness][classObj.weekDay] = {}
-    
-                if (finalJson[classObj.evenness][classObj.weekDay][classObj.classNumber] === undefined)
-                    finalJson[classObj.evenness][classObj.weekDay][classObj.classNumber] = []
-    
-                finalJson[classObj.evenness][classObj.weekDay][classObj.classNumber].push({
-                    name: classObj.name,
-                    teacher: classObj.teacher,
-                    type: classObj.type,
-                    classRoom: classObj.classRoom,
-    
-                    groupName: [...classObj.groups.map(x => x.groupName)],
-                });
-            })
-    
-            res.json(finalJson);
-        })
-
-
-    });
-})
-
-app.get('/db/:groupName', (req, res) => {
-    let group = (req.params.groupName || req.query.groupName || '').toUpperCase();
-    DB.models.Group.findAll({
-        where: {
-            groupName: group,
-        },
-        include: [DB.models.Time, DB.models.Class],
-    }).then(result => {
-        if ((req.params.verbose || req.query.verbose) === 'true') { res.json(result); return; }
-        if (result.length === 0) { res.json({success: false, error: 'Groupname hasn\'t been found.'}); return; }
-
-        // console.log(result[0].timeOfClasses[0].timeOfClass);
-
-        const finalJson = {
-            groupName: result[0].groupName,
-            fullGroupName: result[0].fullGroupName,
-
-            timeOfClass: JSON.parse(result[0].timeOfClasses[0].timeOfClass),
-
-            'I': {},
-            'II': {},
-        }
-
-        result[0].classes.forEach(classObj => {
-            if (!finalJson[classObj.evenness][classObj.weekDay])
-                finalJson[classObj.evenness][classObj.weekDay] = {}
-            finalJson[classObj.evenness][classObj.weekDay][classObj.classNumber] = {
-                name: classObj.name,
-                teacher: classObj.teacher,
-                type: classObj.type,
-                classRoom: classObj.classRoom,
-            }
-        })
-
-        res.json(finalJson);
-    })
-})
-
-
-DB.sequelize.options.logging = false;
-
-DB.sequelize.sync({ force: true }).then(() => {
-    // Object.keys(DB.models).forEach(mod => DB.models[mod].destroy({ where: {}, truncate: true, restartIdentity: true }));
-    app.listen(port, () => {
-        console.log(`Server is running on ${port}...`);
-
-        // parsing();
-
-        // console.log('Start scraping...');
-        // (async (info) => {
-        //     schedules = await require('../scraper/scrape')(info);
-        //     info.finished = true; info.finishedTime = new Date(); info.elapsed = (info.finishedTime.getTime() - info.startedTime.getTime()) / 1000;
-        //     console.log(`Scraped ${schedules.length} tables.`);
-        //     console.log('End of scraping...');
-        // })(parseInfo);
-
-        // startParsing(parseInfo).then((sched) => {
-        //     schedules = sched;
-        //     parseInfo.finished = true; parseInfo.finishedTime = new Date(); parseInfo.elapsed = (parseInfo.finishedTime.getTime() - parseInfo.startedTime.getTime()) / 1000;
-        //     console.log(`Scraped ${schedules.length} tables.`);
-        //     console.log('End of scraping...');
-        //     flattenedSchedule = [];
-        //     schedules.forEach(aSchedule => {
-        //         if (aSchedule !== undefined)
-        //             flattenedSchedule = [...flattenedSchedule, ...aSchedule];
-        //     });
-        // })
-    });
 });
 
 // app.on('listening', () => {

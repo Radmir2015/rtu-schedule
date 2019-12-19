@@ -4,7 +4,7 @@ const rp = require('request-promise'),
 
 const url = 'https://www.mirea.ru/education/schedule-main/schedule/';
 
-const scrape = (info) => {
+const scrape = (db, info) => {
     return rp(url)
         .then(html => {
             // success
@@ -31,7 +31,7 @@ const scrape = (info) => {
                 }
             }
             // 46-50, 50-54 (вечернее отделение), 54-58 (филиал), 67
-            return Promise.all(linksToParse.map(url => downloadSchedule(getOptsForSchedule(url), info)));
+            return Promise.all(linksToParse.slice(26, 28).map(url => downloadSchedule(getOptsForSchedule(url), db, info)));
         })
         .catch(err => {
             // handle error
