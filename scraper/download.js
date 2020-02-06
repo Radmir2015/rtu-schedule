@@ -14,7 +14,20 @@ const downloadSchedule = function(opts, info) {
         ...opts,
     }
 
-    return rp(options).then((body, data) => {
+    return (() => {
+        return new Promise((resolve) => {
+            if (options.openXlsx && options.openingXlsxFolder) {
+                fs.readFile(options.xlsxCurrentFilename, { encoding: 'binary' }, (err, data) => {
+                    if (!err) {
+                        resolve(data);
+                    } else {
+                        console.error(err);
+                    }
+                })
+            } else resolve(rp(options));
+        })
+    })().then((body, data) => {
+    // return rp(options).then((body, data) => {
 
         if (options.saveToXlsx)
             fs.writeFile(options.xlsxFilename || 'schedule.xlsx', body, { encoding: 'binary' }, err => { // body is binary of xlsx

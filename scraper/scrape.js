@@ -1,10 +1,44 @@
 const rp = require('request-promise'),
-      $ = require('cheerio');
-      downloadSchedule = require('./download');
+      $ = require('cheerio'),
+      downloadSchedule = require('./download'),
+      path = require('path'),
+      fs = require('fs');
 
 const url = 'https://www.mirea.ru/education/schedule-main/schedule/';
 
+const getOptsForSchedule = function(url, xlsxCurrentFilename = '') {
+    let opts = {
+        url: url,
+        openXlsx: false,
+        openingXlsxFolder: path.join(__dirname, `data/xlsx/`),
+        xlsxCurrentFilename: xlsxCurrentFilename,
+        saveToJson: false,
+        jsonFilename: `data/json/${path.win32.basename(url)}_schedule.json`,
+        saveToXlsx: false,
+        xlsxFilename: `data/xlsx/${path.win32.basename(url)}`,
+    }
+    opts.jsonFilename = `data/json/${opts.openXlsx ? path.win32.basename(xlsxCurrentFilename) : path.win32.basename(url)}_schedule.json`;
+    opts.xlsxFilename = `data/xlsx/${opts.openXlsx ? path.win32.basename(xlsxCurrentFilename) : path.win32.basename(url)}`;
+    return opts;
+}
+
 const scrape = (info) => {
+    let baseOptions = getOptsForSchedule('');
+
+    if (baseOptions.openXlsx) {
+        return new Promise((resolve) => {
+            fs.readdir(baseOptions.openingXlsxFolder, (err, files) => {
+                if (err) console.error(err);
+                console.log('files', files);
+                resolve(files);
+            })
+        }).then(files => {
+            if (info)
+                info.total = files.length;
+
+            return Promise.all(files.map(file => downloadSchedule(getOptsForSchedule(url, baseOptions.openingXlsxFolder + file), info)));
+        })
+    } else
     return rp(url)
         .then(html => {
             // success
@@ -21,15 +55,6 @@ const scrape = (info) => {
             if (info)
                 info.total = linksToParse.length;
             
-            const getOptsForSchedule = function(url) {
-                return opts = {
-                    url: url,
-                    saveToJson: false,
-                    jsonFilename: `data/json/${url.split('/')[url.split('/').length - 1]}_schedule.json`,
-                    saveToXlsx: false,
-                    xlsxFilename: `data/xlsx/${url.split('/')[url.split('/').length - 1]}`,
-                }
-            }
             // 46-50, 50-54 (вечернее отделение), 54-58 (филиал), 67
             return Promise.all(linksToParse.map(url => downloadSchedule(getOptsForSchedule(url), info)));
         })
@@ -41,6 +66,8 @@ const scrape = (info) => {
     }
 
 // parseInfo = { parsed: 0, error: 0, total: 0 };
+
+// let parseInfo;
 // scrape(parseInfo);
 
 // console.log('info', parseInfo);
