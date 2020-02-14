@@ -9,8 +9,8 @@ const url = 'https://www.mirea.ru/education/schedule-main/schedule/';
 const getOptsForSchedule = function(url, xlsxCurrentFilename = '') {
     let opts = {
         url: url,
-        openXlsx: false,
-        openingXlsxFolder: path.join(__dirname, `data/xlsx/`),
+        openXlsx: true,
+        openingXlsxFolder: path.join(__dirname, `data/xlsxExam/`),
         xlsxCurrentFilename: xlsxCurrentFilename,
         saveToJson: false,
         jsonFilename: `data/json/${path.win32.basename(url)}_schedule.json`,
@@ -68,7 +68,7 @@ const scrape = (info) => {
 // parseInfo = { parsed: 0, error: 0, total: 0 };
 
 // let parseInfo;
-// scrape(parseInfo);
+// scrape(parseInfo)//.then(data => console.dir(data, { depth: null }));
 
 // console.log('info', parseInfo);
 module.exports = scrape;
