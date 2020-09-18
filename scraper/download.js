@@ -14,6 +14,8 @@ const downloadSchedule = function(opts, info) {
         ...opts,
     }
 
+    options.url = encodeURI(options.url);
+
     return (() => {
         return new Promise((resolve) => {
             if (options.openXlsx && options.openingXlsxFolder) {

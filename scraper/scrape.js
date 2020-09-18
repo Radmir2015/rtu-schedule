@@ -4,12 +4,13 @@ const rp = require('request-promise'),
       path = require('path'),
       fs = require('fs');
 
-const url = 'https://www.mirea.ru/education/schedule-main/schedule/';
+// const url = 'https://www.mirea.ru/education/schedule-main/schedule/';
+const url = 'https://www.mirea.ru/schedule/';
 
 const getOptsForSchedule = function(url, xlsxCurrentFilename = '') {
     let opts = {
         url: url,
-        openXlsx: true,
+        openXlsx: false,
         openingXlsxFolder: path.join(__dirname, `data/xlsxExam/`),
         xlsxCurrentFilename: xlsxCurrentFilename,
         saveToJson: false,
@@ -44,7 +45,7 @@ const scrape = (info) => {
             // success
             // console.log($('.xls', html).map(item => item.attribs.href));
             const linksToParse = [];
-            let links = $('.xls', html);
+            let links = $('.uk-link-toggle', html);
             for (let i = 0; i < links.length; i++) {
                 let link = links[i].attribs.href;
                 if (!link.endsWith('pdf'))
