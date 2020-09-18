@@ -193,11 +193,12 @@ const parseXls = function (options) {
 
     const getFirstGroup = function(shift, value = 'Предмет') {
         let groupShift, groupColTempArr, groupColsSuccess = [];
-        let groupCols = [ [4, 7], [4, 8], [5, 8], [5, 9], [3, 6] ];
+        let groupCols = [ [4, 7], [4, 8], [4, 9], [5, 8], [5, 9], [5, 10], [3, 6] ];
         groupCols.forEach(cols => {
             groupColTempArr = [];
             groupShift = cols[0]; // cols[1] + (cols[1] - cols[0]);
-            while (getValueOn(worksheet, shift + groupShift, tableStart.rowN).trim() == value) {
+            // console.log('findFirstGroup', getValueOn(worksheet, shift + groupShift, tableStart.rowN + 1).trim(), value, groupShift)
+            while (getValueOn(worksheet, shift + groupShift, tableStart.rowN + 1).trim() == value) {
                 groupColTempArr.push(groupShift);
                 groupShift += cols[1] - cols[0];
             }
@@ -377,7 +378,7 @@ const parseXls = function (options) {
         groupsBlockOffset = firstGroup.groupColArray[firstGroup.groupColArray.length - 1] + firstGroup.oneGroupWidth;
 
         firstGroup.groupColArray.forEach(shift => {
-            // console.log(123, getValueOn(worksheet, colN + shift, 1));
+            console.log('fullGroupName', colN + shift, tableStart.rowN, getValueOn(worksheet, colN + shift, tableStart.rowN));
             const fullGroupName = getValueOn(worksheet, colN + shift, tableStart.rowN).trim();
             const groupNamesArray = fullGroupName.split(',').map(item => item.trim().replace('(', ' ').split(' ')[0].replace(/(\r\n|\n|\r)/gm, ""));
             const groupName = groupNamesArray[0];
@@ -421,7 +422,7 @@ const parseXls = function (options) {
                 if (!!mappedProps)
                     return getScheduleClassFromTableUsingMappedProps(mappedPropShift);
 
-                if (firstGroup.oneGroupWidth == 4) {
+                if (firstGroup.oneGroupWidth >= 4) {
                     return getScheduleClassFromTable(['name', 'type', 'teacher', 'classRoom']);
                 } else if (firstGroup.oneGroupWidth == 3) {
                     return getScheduleClassFromTable(['name', 'type', 'classRoom']);
