@@ -61,7 +61,8 @@ app.get('/api/allTeachers', (req, res) => {
                 Object.keys(aSchedule[groupName][evenness] || {}).forEach(day => {
                     Object.keys(aSchedule[groupName][evenness][day] || {}).forEach(classN => {
                         if (!aSchedule[groupName][evenness][day][classN]) return false;
-                        if (!aSchedule[groupName][evenness][day][classN].teacher) return false;
+                        if (!aSchedule[groupName][evenness][day][classN].teacher ||
+                            typeof aSchedule[groupName][evenness][day][classN].teacher !== 'string') return false;
                         aSchedule[groupName][evenness][day][classN].teacher.split(/,\s*|\r\n/g).forEach(teacher => {
                             if (teacher.trim()) {
                                 if (!rawTeachers.has(teacher.replace(/[ \.]+/g, '').toLowerCase())) {
@@ -131,7 +132,8 @@ app.get('/api/teacher/:teacherName?', (req, res) => {
                 Object.keys(aSchedule[groupName][evenness] || {}).forEach(day => {
                     Object.keys(aSchedule[groupName][evenness][day] || {}).forEach(classN => {
                         if (!aSchedule[groupName][evenness][day][classN]) return false;
-                        if (!aSchedule[groupName][evenness][day][classN].teacher) return false;
+                        if (!aSchedule[groupName][evenness][day][classN].teacher ||
+                            typeof aSchedule[groupName][evenness][day][classN].teacher !== 'string') return false;
                         if (aSchedule[groupName][evenness][day][classN].teacher.toLowerCase().replace(/[ \.]+/g, '').indexOf(teacher.replace(/[ \.]+/g, '')) !== -1) {
                             if (!teacherSchedule[evenness])
                                 teacherSchedule[evenness] = {};
